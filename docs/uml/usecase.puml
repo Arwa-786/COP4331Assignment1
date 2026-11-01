@@ -1,0 +1,55 @@
+@startuml usecase
+' Use Case Diagram - COLORS Web Application (COP 4331, LAMP stack)
+' Derived from public/index.html, public/color.html, public/js/code.js and api/*.php
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F7F9FC
+  BorderColor #3B5B8C
+}
+
+actor "User" as User
+actor "MySQL Database\n(COP4331)" as DB <<system>>
+
+rectangle "COLORS Web Application" {
+  usecase "Log In\n(index.html -> Login.php)" as UC_Login
+  usecase "Add Color\n(color.html -> AddColor.php)" as UC_Add
+  usecase "Search Colors\n(color.html -> SearchColors.php)" as UC_Search
+  usecase "Log Out\n(doLogout)" as UC_Logout
+
+  usecase "Verify Session Cookie\n(readCookie)" as UC_Session
+  usecase "Authenticate Credentials\n(SELECT ... FROM Users)" as UC_Auth
+  usecase "Save Session Cookie\n(saveCookie, 20 min)" as UC_Cookie
+  usecase "Show Login Error\n('User/Password combination incorrect')" as UC_LoginErr
+}
+
+User --> UC_Login
+User --> UC_Add
+User --> UC_Search
+User --> UC_Logout
+
+UC_Login ..> UC_Auth : <<include>>
+UC_Cookie ..> UC_Login : <<extend>>\n[valid credentials]
+UC_LoginErr ..> UC_Login : <<extend>>\n[id < 1]
+
+UC_Add ..> UC_Session : <<include>>
+UC_Search ..> UC_Session : <<include>>
+
+UC_Auth --> DB
+UC_Add --> DB
+UC_Search --> DB
+
+note right of UC_Session
+  color.html calls readCookie() on load.
+  If no userId is found in the cookie,
+  the user is redirected to index.html.
+end note
+
+note bottom of UC_Search
+  Partial match: Name LIKE %search%,
+  limited to the logged-in user's colors.
+end note
+
+@enduml

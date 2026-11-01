@@ -1,0 +1,93 @@
+@startuml activity
+' Activity Diagram - COLORS Web Application
+' Main flow: log in -> color page -> search / add colors -> log out
+' Swimlanes follow the three tiers of the LAMP stack.
+
+skinparam activity {
+  BackgroundColor #F7F9FC
+  BorderColor #3B5B8C
+}
+skinparam swimlane {
+  BorderColor #3B5B8C
+}
+
+|Browser (code.js)|
+start
+:Open index.html;
+:Enter username and password;
+:Click "Do It" -> doLogin();
+:POST {login, password} to /LAMPAPI/Login.php;
+
+|PHP API|
+:Login.php: getRequestInfo();
+if (Database connection OK?) then (yes)
+  |MySQL|
+  :SELECT ID, firstName, lastName\nFROM Users WHERE Login=? AND Password=?;
+  |PHP API|
+  if (Matching row found?) then (yes)
+    :returnWithInfo(firstName, lastName, id);
+  else (no)
+    :returnWithError("No Records Found")\n(id = 0);
+  endif
+else (no)
+  :returnWithError(connect_error);
+endif
+
+|Browser (code.js)|
+:Parse JSON response;
+if (userId < 1?) then (yes)
+  :Show "User/Password combination incorrect";
+  stop
+else (no)
+  :saveCookie()\n(firstName, lastName, userId; expires in 20 min);
+  :Redirect to color.html;
+endif
+
+:readCookie() on DOMContentLoaded;
+if (userId found in cookie?) then (no)
+  :Redirect to index.html;
+  stop
+else (yes)
+endif
+
+repeat
+  :Choose an action;
+  if (Action?) then (Search Color)
+    :Enter search text;
+    :Call searchColor()\nPOST {search, userId} to /LAMPAPI/SearchColors.php;
+    |PHP API|
+    :SearchColors.php: getRequestInfo();
+    |MySQL|
+    :SELECT Name FROM Colors\nWHERE Name LIKE '%search%' AND UserID=?;
+    |PHP API|
+    if (Rows found?) then (yes)
+      :returnWithInfo(results);
+      |Browser (code.js)|
+      :Show "Color(s) has been retrieved";
+      :Display color names in <p id="colorList">;
+    else (no)
+      :returnWithError("No Records Found");
+      |Browser (code.js)|
+      :Show "Color(s) has been retrieved"\n(response has no results array,\nso colorList is not updated);
+    endif
+  else (Add Color)
+    |Browser (code.js)|
+    :Enter color name;
+    :Call addColor()\nPOST {color, userId} to /LAMPAPI/AddColor.php;
+    |PHP API|
+    :AddColor.php: getRequestInfo();
+    |MySQL|
+    :INSERT INTO Colors (UserId, Name) VALUES (?, ?);
+    |PHP API|
+    :returnWithError("")  (empty error = success);
+    |Browser (code.js)|
+    :Show "Color has been added";
+  endif
+  |Browser (code.js)|
+repeat while (Log out?) is (no)
+->yes;
+:doLogout(): clear variables, expire cookie;
+:Redirect to index.html;
+stop
+
+@enduml

@@ -1,0 +1,144 @@
+@startuml class
+' Class Diagram - COLORS Web Application
+' The app is written procedurally (no class keywords). Each source file is
+' modeled as a class: its globals become attributes, its functions become
+' operations. Stereotypes mark what each one really is.
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #F7F9FC
+  BorderColor #3B5B8C
+  ArrowColor #3B5B8C
+}
+hide empty members
+
+package "Frontend (public/)" {
+  class "index.html" as IndexPage <<page>> {
+    loginName : input[text]
+    loginPassword : input[password]
+    loginButton : button
+    loginResult : span
+  }
+
+  class "color.html" as ColorPage <<page>> {
+    userName : span
+    logoutButton : button
+    searchText : input[text]
+    searchColorButton : button
+    colorSearchResult : span
+    colorList : p
+    colorText : input[text]
+    addColorButton : button
+    colorAddResult : span
+  }
+
+  class "code.js" as CodeJS <<script>> {
+    + urlBase : String = "/LAMPAPI" {readOnly}
+    + extension : String = "php" {readOnly}
+    + userId : int = 0
+    + firstName : String = ""
+    + lastName : String = ""
+    --
+    + doLogin() : void
+    + saveCookie() : void
+    + readCookie() : void
+    + doLogout() : void
+    + addColor() : void
+    + searchColor() : void
+  }
+
+  class "md5.js" as MD5 <<script>> {
+    + md5(string) : String
+  }
+}
+
+package "Backend API (api/ -> /LAMPAPI)" {
+  abstract class "PHP Endpoint" as Endpoint <<pattern>> {
+    # getRequestInfo() : array
+    # sendResultInfoAsJson(obj : String) : void
+    # returnWithError(err : String) : void
+  }
+
+  class "Login.php" as LoginPHP <<endpoint>> {
+    - id : int
+    - firstName : String
+    - lastName : String
+    --
+    - returnWithInfo(firstName, lastName, id) : void
+  }
+
+  class "AddColor.php" as AddColorPHP <<endpoint>> {
+    - color : String
+    - userId : int
+  }
+
+  class "SearchColors.php" as SearchColorsPHP <<endpoint>> {
+    - searchResults : String
+    - searchCount : int
+    --
+    - returnWithInfo(searchResults : String) : void
+  }
+
+  class "config.php" as Config <<config>> {
+    + DB_HOST : String
+    + DB_USER : String
+    + DB_PASS : String
+    + DB_NAME : String = "COP4331"
+  }
+}
+
+package "Database (MySQL COP4331)" {
+  class Users <<table>> {
+    + ID : int {PK}
+    + firstName : String
+    + lastName : String
+    + Login : String
+    + Password : String
+  }
+
+  class Colors <<table>> {
+    + UserID : int {FK -> Users.ID}
+    + Name : String
+  }
+}
+
+' ---------- Frontend relationships ----------
+IndexPage ..> CodeJS : <<loads>>
+IndexPage ..> MD5 : <<loads>>
+ColorPage ..> CodeJS : <<loads>>
+CodeJS ..> MD5 : <<uses>>\n(call commented out)
+
+' ---------- HTTP calls (JSON over POST) ----------
+CodeJS ..> LoginPHP : doLogin()\nPOST {login, password}
+CodeJS ..> AddColorPHP : addColor()\nPOST {color, userId}
+CodeJS ..> SearchColorsPHP : searchColor()\nPOST {search, userId}
+
+' ---------- Shared helper functions ----------
+Endpoint <|-- LoginPHP
+Endpoint <|-- AddColorPHP
+Endpoint <|-- SearchColorsPHP
+
+LoginPHP ..> Config : <<require_once>>
+AddColorPHP ..> Config : <<require_once>>
+SearchColorsPHP ..> Config : <<require_once>>
+
+' ---------- Database access ----------
+LoginPHP ..> Users : SELECT
+AddColorPHP ..> Colors : INSERT
+SearchColorsPHP ..> Colors : SELECT ... LIKE
+
+Users "1" -- "0..*" Colors : owns >
+
+note bottom of Endpoint
+  Not a real PHP class. Each endpoint file declares
+  its own copy of these three helper functions;
+  generalization shows the shared structure.
+end note
+
+note right of CodeJS
+  Session state lives in a browser cookie:
+  "firstName=..,lastName=..,userId=.."
+  (expires after 20 minutes)
+end note
+
+@enduml
