@@ -1,0 +1,32 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (used only for linting tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install lint tools
+        run: npm ci
+
+      - name: Lint JavaScript (ESLint)
+        run: npm run lint:js
+
+      - name: Lint CSS (Stylelint)
+        if: always()
+        run: npm run lint:css
+
+      - name: Lint HTML (HTMLHint)
+        if: always()
+        run: npm run lint:html
