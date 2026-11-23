@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (used only for linting and testing tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install lint tools
+        run: npm ci
+
+      - name: Lint JavaScript (ESLint)
+        run: npm run lint:js
+
+      - name: Lint CSS (Stylelint)
+        if: always()
+        run: npm run lint:css
+
+      - name: Lint HTML (HTMLHint)
+        if: always()
+        run: npm run lint:html
+
+  test:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: http://localhost:8000
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (used only for linting and testing tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install test tools
+        run: npm ci
+
+      - name: Set up PHP with mysqli
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+
+      # MySQL comes preinstalled on GitHub's Ubuntu runners (user root / password root)
+      - name: Start MySQL and load test data
+        run: |
+          sudo systemctl start mysql.service
+          mysql -uroot -proot < tests/integration/setup.sql
+
+      - name: Create API config for CI
+        run: |
+          cat > api/config.php <<'EOF'
+          <?php
+          	define('DB_HOST', '127.0.0.1');
+          	define('DB_USER', 'root');
+          	define('DB_PASS', 'root');
+          	define('DB_NAME', 'COP4331_test');
+          ?>
+          EOF
+
+      - name: Start PHP built-in server
+        run: |
+          php -S localhost:8000 -t api > php-server.log 2>&1 &
+          for i in $(seq 1 10); do
+            curl -s -o /dev/null http://localhost:8000/ && break
+            sleep 1
+          done
+
+      - name: Run unit and integration tests (Jest)
+        run: npm test
+
+      - name: Show PHP server log
+        if: failure()
+        run: cat php-server.log
