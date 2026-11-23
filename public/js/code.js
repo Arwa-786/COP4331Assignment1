@@ -1,3 +1,4 @@
+/* global isValidColorName */
 const urlBase = '/LAMPAPI';
 const extension = 'php';
 
@@ -113,6 +114,11 @@ function addColor()
 	let newColor = document.getElementById("colorText").value;
 	document.getElementById("colorAddResult").innerHTML = "";
 
+        if (!isValidColorName(newColor))
+        {
+              document.getElementById("colorAddResult").innerHTML = "Please enter a valid color name (letters only)";
+              return;
+        }
 	let tmp = {color:newColor,userId:userId};
 	let jsonPayload = JSON.stringify( tmp );
 
